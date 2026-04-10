@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../services/AuthContext';
 import { Alert, ActivityIndicator, Image } from 'react-native';
+import { sendPushNotification } from '../../services/pushNotifications';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'IDUpload'>;
@@ -60,6 +61,13 @@ export default function IDUploadScreen({ navigation }: Props) {
         .upload(filePath, blob);
 
       if (error) throw error;
+      
+      // Notify Admin of a new Verification Request
+      await sendPushNotification(
+        'admin-id-placeholder',
+        'Verification Required 📋',
+        'A new user just uploaded their ID. Please review their account in the admin dashboard.'
+      );
       
       navigation.navigate('PendingApproval');
     } catch (error: any) {

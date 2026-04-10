@@ -16,6 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../services/AuthContext';
+import { sendPushNotification } from '../../services/pushNotifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -79,6 +80,11 @@ export default function ChatScreen({ navigation, route }: Props) {
 
     const { error } = await supabase.from('messages').insert(newMessage);
     if (!error) {
+      // Send a push notification alerting the person!
+      // Note: We need to figure out the OTHER person's ID. You'd typically grab this from the Ride or Booking data!
+      // Example:
+      // await sendPushNotification(otherUserId, session.user.user_metadata?.full_name || 'New Message', inputText.trim());
+      
       setInputText('');
     }
   };

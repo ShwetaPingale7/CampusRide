@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { useAuth } from '../../services/AuthContext';
+import { sendPushNotification } from '../../services/pushNotifications';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Report'>;
@@ -27,12 +29,34 @@ const REASONS = [
 ];
 
 export default function ReportScreen({ navigation }: Props) {
+  const { session } = useAuth();
   const [selectedReason, setSelectedReason] = useState('');
   const [description, setDescription] = useState('');
   const [descFocused, setDescFocused] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const isValid = selectedReason !== '' && description.trim().length > 10;
+
+  const handleSubmit = async () => {
+    if (!isValid) return;
+    setSubmitted(true);
+
+    // 1. Notify Admin that a report was filed
+    await sendPushNotification(
+      'admin-id-placeholder',
+      'New User Report 🚩',
+      `A user just reported a rider for: ${selectedReason}. Immediate review required.`
+    );
+
+    // 2. Send receipt to the user who filed it
+    if (session?.user?.id) {
+       await sendPushNotification(
+         session.user.id,
+         'Report Received 🛡️',
+         'Your report has been securely sent. We take safety very seriously and will investigate immediately.'
+       );
+    }
+  };
 
   if (submitted) {
     return (
@@ -148,7 +172,7 @@ export default function ReportScreen({ navigation }: Props) {
           {/* Submit */}
           <TouchableOpacity
             style={[styles.submitButton, !isValid && styles.submitButtonDisabled]}
-            onPress={() => isValid && setSubmitted(true)}
+            onPress={handleSubmit}
             activeOpacity={isValid ? 0.8 : 1}
           >
             <Ionicons

@@ -16,6 +16,8 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+import { registerForPushNotificationsAsync } from './pushNotifications';
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -26,6 +28,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user?.id) {
+        registerForPushNotificationsAsync(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -33,6 +38,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user?.id) {
+        registerForPushNotificationsAsync(session.user.id);
+      }
       setLoading(false);
     });
 

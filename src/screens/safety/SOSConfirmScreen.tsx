@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import * as SMS from 'expo-sms';
+import { sendPushNotification } from '../../services/pushNotifications';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SOSConfirm'>;
@@ -89,8 +91,26 @@ export default function SOSConfirmScreen({ navigation }: Props) {
     return () => clearInterval(ticker);
   }, [triggered]);
 
-  const handleSOS = () => {
+  const handleSOS = async () => {
     setTriggered(true);
+    
+    // 1. Send an alert directly to Campus Security / Admin
+    // Using a mock Admin ID for MVP purposes
+    await sendPushNotification(
+      'admin-id-placeholder',
+      '🚨 EMERGENCY SOS ALERT 🚨',
+      'A student has triggered an SOS alert. Immediate assistance required.'
+    );
+
+    // 2. Open native SMS app to send Emergency text to parents/friends
+    const isAvailable = await SMS.isAvailableAsync();
+    if (isAvailable) {
+      await SMS.sendSMSAsync(
+        ['9999999999', '8888888888'], // Mock emergency contact list
+        '🚨 EMERGENCY: I need help! I am currently on a CampusRide. Please check my live location and contact campus security immediately.'
+      );
+    }
+
     navigation.replace('SOSActivated');
   };
 

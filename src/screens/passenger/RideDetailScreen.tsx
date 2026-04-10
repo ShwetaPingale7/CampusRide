@@ -16,6 +16,7 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../services/AuthContext';
 import { useState } from 'react';
 import { ActivityIndicator, Alert } from 'react-native';
+import { sendPushNotification } from '../../services/pushNotifications';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RideDetail'>;
@@ -68,6 +69,22 @@ export default function RideDetailScreen({ navigation, route }: Props) {
     if (error) {
       Alert.alert('Booking Failed', error.message);
     } else {
+      // 1. Alert the driver that they have a new ride request!
+      await sendPushNotification(
+        ride.driver_id,
+        'New Ride Request! 🔥',
+        `Someone just requested a seat in your ride from ${ride.origin}. Open the app to accept or decline.`
+      );
+
+      // 2. Alert the passenger (local self-notification) that the request went through!
+      if (session?.user?.id) {
+        await sendPushNotification(
+          session.user.id,
+          'Request Sent! ⏳',
+          `Your ride request to ${ride.profiles?.full_name || 'the driver'} has been sent to them for review.`
+        );
+      }
+
       navigation.navigate('RequestSent');
     }
   };

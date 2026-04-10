@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { sendPushNotification } from '../../services/pushNotifications';
+import { useAuth } from '../../services/AuthContext';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Payment'>;
@@ -20,6 +22,19 @@ type PaymentMethod = 'upi' | 'cash';
 
 export default function PaymentScreen({ navigation }: Props) {
   const [selected, setSelected] = useState<PaymentMethod>('upi');
+  const { session } = useAuth();
+
+  const handleConfirmPayment = async () => {
+    // Simulating sending to the passenger, but routing to current device for testability
+    if (session?.user?.id) {
+      await sendPushNotification(
+        session.user.id,
+        'Payment Successful! ✅',
+        'The ₹31 payment has been officially recorded. Please take a moment to rate your ride.'
+      );
+    }
+    navigation.navigate('Rating');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -136,7 +151,7 @@ export default function PaymentScreen({ navigation }: Props) {
         {/* Confirm CTA */}
         <TouchableOpacity
           style={styles.confirmButton}
-          onPress={() => navigation.navigate('Rating')}
+          onPress={handleConfirmPayment}
         >
           <Ionicons
             name="checkmark-done-outline"

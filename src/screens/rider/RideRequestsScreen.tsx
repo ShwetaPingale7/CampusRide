@@ -11,38 +11,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { sendPushNotification, scheduleDayOfRideAlert } from '../../services/pushNotifications';
+import { useAuth } from '../../services/AuthContext';
+import { supabase } from '../../services/supabase';
+import { useState, useEffect } from 'react';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RideRequests'>;
 };
 
-const MOCK_REQUESTS = [
-  {
-    id: '1',
-    name: 'Priya Mehta',
-    initials: 'PM',
-    rating: 4.7,
-    pickup: 'Library Gate, Block B',
-    drop: 'Engineering Block',
-  },
-  {
-    id: '2',
-    name: 'Rahul Singh',
-    initials: 'RS',
-    rating: 4.2,
-    pickup: 'Hostel 3, Campus South',
-    drop: 'Admin Block',
-  },
-  {
-    id: '3',
-    name: 'Sneha Joshi',
-    initials: 'SJ',
-    rating: 5.0,
-    pickup: 'Main Gate',
-    drop: 'Science Building',
-  },
-];
-
+// Removed static array
 function StarRow({ rating }: { rating: number }) {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5;
@@ -62,11 +40,104 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function RideRequestsScreen({ navigation }: Props) {
-  const handleAccept = (_id: string) => {
-    navigation.navigate('ActiveRide');
+  const { session } = useAuth();
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!session?.user?.id) return;
+      setLoading(true);
+
+      const { data: ridesData } = await supabase
+        .from('rides')
+        .select('id')
+        .eq('driver_id', session.user.id)
+        .eq('status', 'scheduled');
+
+      if (!ridesData || ridesData.length === 0) {
+        setRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      const rideIds = ridesData.map(r => r.id);
+
+      const { data: bookingsData } = await supabase
+        .from('bookings')
+        .select('*, profiles:passenger_id(id, full_name, avatar_url), rides:ride_id(origin, destination)')
+        .in('ride_id', rideIds)
+        .eq('status', 'pending');
+
+      if (bookingsData) {
+        const mapped = bookingsData.map((b: any) => ({
+          id: b.id, // booking id
+          ride_id: b.ride_id,
+          passenger_id: b.profiles?.id,
+          name: b.profiles?.full_name || 'Passenger',
+          initials: (b.profiles?.full_name || 'U').substring(0, 2).toUpperCase(),
+          rating: 4.8, // MVP placeholder
+          pickup: b.rides?.origin || 'Unknown',
+          drop: b.rides?.destination || 'Unknown',
+        }));
+        setRequests(mapped);
+      }
+      setLoading(false);
+    };
+
+    fetchRequests();
+
+    // Listen to real-time additions to bookings
+    const channel = supabase
+      .channel('booking_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, payload => {
+        fetchRequests(); // Refresh on any change
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  const handleAccept = async (bookingId: string, passengerId: string, rideId: string) => {
+    // 1. Accept the ride in Supabase
+    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', bookingId);
+    
+    // 2. Send the push notification to the Passenger regarding acceptance + contact info!
+    if (passengerId) {
+      await sendPushNotification(
+        passengerId, 
+        'Ride Accepted! 🎉', 
+        'A driver has accepted your ride request. You can now view their contact details and live track their location!'
+      );
+    }
+
+    // 3. Send a push notification to the Driver (yourself) about contact info
+    if (session?.user?.id) {
+       await sendPushNotification(
+         session.user.id,
+         'Passenger Added 👤',
+         'You accepted the ride request. The passenger\'s contact details are now unlocked for this trip!'
+       );
+    }
+
+    // 4. Schedule a day-of-ride alert (Morning reminder 7:00 AM)
+    // Assuming the ride is today or tomorrow (using current date for mock placeholder)
+    await scheduleDayOfRideAlert(
+       'Today is your carpool! 🚗',
+       'Don\'t forget you have a ride scheduled today. Drive safely!',
+       new Date().toISOString() 
+    );
+    navigation.navigate('ActiveRide', { rideId });
   };
 
-  const renderItem = ({ item }: { item: typeof MOCK_REQUESTS[0] }) => (
+  const handleDecline = async (bookingId: string) => {
+    await supabase.from('bookings').update({ status: 'rejected' }).eq('id', bookingId);
+    setRequests(prev => prev.filter(req => req.id !== bookingId));
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
     <View style={styles.requestCard}>
       {/* Top row: avatar + name/rating + accept/decline */}
       <View style={styles.cardTop}>
@@ -96,7 +167,7 @@ export default function RideRequestsScreen({ navigation }: Props) {
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={styles.declineButton}
-          onPress={() => {}}
+          onPress={() => handleDecline(item.id)}
         >
           <Ionicons name="close" size={18} color={theme.colors.error} style={{ marginRight: 6 }} />
           <Text style={styles.declineText}>Decline</Text>
@@ -104,7 +175,7 @@ export default function RideRequestsScreen({ navigation }: Props) {
 
         <TouchableOpacity
           style={styles.acceptButton}
-          onPress={() => handleAccept(item.id)}
+          onPress={() => handleAccept(item.id, item.passenger_id, item.ride_id)}
         >
           <Ionicons name="checkmark" size={18} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.acceptText}>Accept</Text>
@@ -127,17 +198,23 @@ export default function RideRequestsScreen({ navigation }: Props) {
           <Text style={styles.pageTitle}>Pending{'\n'}Requests.</Text>
           <View style={styles.countBadge}>
             <View style={styles.countDot} />
-            <Text style={styles.countText}>{MOCK_REQUESTS.length} waiting</Text>
+            <Text style={styles.countText}>{requests.length} waiting</Text>
           </View>
         </View>
 
-        <FlatList
-          data={MOCK_REQUESTS}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ gap: theme.spacing.m }}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <Text style={{ textAlign: 'center', marginTop: 40, color: theme.colors.onSurfaceVariant }}>Loading requests...</Text>
+        ) : requests.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginTop: 40, color: theme.colors.onSurfaceVariant }}>No pending requests right now.</Text>
+        ) : (
+          <FlatList
+            data={requests}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ gap: theme.spacing.m }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

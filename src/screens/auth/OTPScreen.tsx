@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import * as Notifications from 'expo-notifications';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'OTP'>;
@@ -39,6 +40,18 @@ export default function OTPScreen({ navigation }: Props) {
   };
 
   const isComplete = otp.every((d) => d !== '');
+
+  const verifyIdentity = async () => {
+    // Simulate New Device Login Push Notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'New Login Detected 🛡️',
+        body: 'CampusRide was just accessed from a new device. If this wasn\'t you, please secure your account immediately.',
+      },
+      trigger: null, // trigger immediately
+    });
+    navigation.navigate('ProfileSetup');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -89,7 +102,7 @@ export default function OTPScreen({ navigation }: Props) {
           {/* Verify CTA */}
           <TouchableOpacity
             style={[styles.primaryButton, !isComplete && styles.primaryButtonDisabled]}
-            onPress={() => navigation.navigate('ProfileSetup')}
+            onPress={isComplete ? verifyIdentity : undefined}
             activeOpacity={0.88}
           >
             <Ionicons

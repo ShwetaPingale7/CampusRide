@@ -10,9 +10,11 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
@@ -21,9 +23,10 @@ type Props = {
 };
 
 const POPULAR_ROUTES = [
-  { from: 'Main Gate', to: 'Library' },
-  { from: 'Hostel Block A', to: 'Canteen' },
-  { from: 'Admin Office', to: 'Labs Complex' },
+  { from: 'KBT Circle', to: 'MVP KBTCOE' },
+  { from: 'Devlali Camp', to: 'KK Wagh Engineering College' },
+  { from: 'Nashik Road', to: 'Sandip University' },
+  { from: 'College Road', to: 'MET Bhujbal Knowledge City' },
 ];
 
 export default function FindRideScreen({ navigation }: Props) {
@@ -32,11 +35,18 @@ export default function FindRideScreen({ navigation }: Props) {
   const [pickupFocused, setPickupFocused] = useState(false);
   const [destFocused, setDestFocused] = useState(false);
 
+  const pickupRef = React.useRef<any>(null);
+  const destRef = React.useRef<any>(null);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.surfaceContainerLow} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
 
           {/* Header */}
           <View style={styles.header}>
@@ -52,45 +62,85 @@ export default function FindRideScreen({ navigation }: Props) {
           </View>
 
           {/* Route Input Card */}
-          <View style={styles.routeCard}>
-            <View style={[styles.inputRow, pickupFocused && styles.inputRowFocused]}>
-              <View style={styles.pinDot} />
-              <TextInput
-                style={styles.input}
+          <View style={[styles.routeCard, { overflow: 'visible', zIndex: 100 }]}>
+            <View style={{ zIndex: 100, marginBottom: 4 }}>
+              <GooglePlacesAutocomplete
+                ref={pickupRef}
                 placeholder="Pickup location"
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={pickup}
-                onChangeText={setPickup}
-                onFocus={() => setPickupFocused(true)}
-                onBlur={() => setPickupFocused(false)}
+                fetchDetails={true}
+                onPress={(data) => {
+                  setPickup(data.description);
+                }}
+                query={{
+                  key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+                  language: 'en',
+                  components: 'country:in',
+                  location: '20.0110,73.7903',
+                  radius: '30000',
+                  strictbounds: false,
+                }}
+                onFail={(error) => Alert.alert('Google API Error', JSON.stringify(error) || 'Make sure Places API is enabled')}
+                textInputProps={{
+                  onFocus: () => setPickupFocused(true),
+                  onBlur: () => setPickupFocused(false),
+                  placeholderTextColor: theme.colors.onSurfaceVariant,
+                }}
+                renderLeftButton={() => (
+                  <View style={{ justifyContent: 'center', marginRight: theme.spacing.m }}>
+                    <View style={styles.pinDot} />
+                  </View>
+                )}
+                styles={{
+                  ...googlePlacesStyles,
+                  textInputContainer: [
+                    styles.inputRow,
+                    pickupFocused && styles.inputRowFocused,
+                    { marginBottom: 0 }
+                  ] as any,
+                }}
               />
-              {pickup.length > 0 && (
-                <TouchableOpacity onPress={() => setPickup('')}>
-                  <Ionicons name="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
             </View>
 
             <View style={styles.connector}>
               <View style={styles.connectorLine} />
             </View>
 
-            <View style={[styles.inputRow, destFocused && styles.inputRowFocused]}>
-              <View style={styles.pinSquare} />
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: 90, marginBottom: 4 }}>
+              <GooglePlacesAutocomplete
+                ref={destRef}
                 placeholder="Destination"
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={destination}
-                onChangeText={setDestination}
-                onFocus={() => setDestFocused(true)}
-                onBlur={() => setDestFocused(false)}
+                fetchDetails={true}
+                onPress={(data) => {
+                  setDestination(data.description);
+                }}
+                query={{
+                  key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+                  language: 'en',
+                  components: 'country:in',
+                  location: '20.0110,73.7903',
+                  radius: '30000',
+                  strictbounds: false,
+                }}
+                onFail={(error) => Alert.alert('Google API Error', JSON.stringify(error) || 'Make sure Places API is enabled')}
+                textInputProps={{
+                  onFocus: () => setDestFocused(true),
+                  onBlur: () => setDestFocused(false),
+                  placeholderTextColor: theme.colors.onSurfaceVariant,
+                }}
+                renderLeftButton={() => (
+                  <View style={{ justifyContent: 'center', marginRight: theme.spacing.m }}>
+                    <View style={styles.pinSquare} />
+                  </View>
+                )}
+                styles={{
+                  ...googlePlacesStyles,
+                  textInputContainer: [
+                    styles.inputRow,
+                    destFocused && styles.inputRowFocused,
+                    { marginBottom: 0 }
+                  ] as any,
+                }}
               />
-              {destination.length > 0 && (
-                <TouchableOpacity onPress={() => setDestination('')}>
-                  <Ionicons name="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
             </View>
           </View>
 
@@ -104,6 +154,8 @@ export default function FindRideScreen({ navigation }: Props) {
                 onPress={() => {
                   setPickup(r.from);
                   setDestination(r.to);
+                  pickupRef.current?.setAddressText(r.from);
+                  destRef.current?.setAddressText(r.to);
                 }}
                 activeOpacity={0.8}
               >
@@ -129,7 +181,27 @@ export default function FindRideScreen({ navigation }: Props) {
           {/* Search Button */}
           <TouchableOpacity
             style={styles.searchButton}
-            onPress={() => navigation.navigate('RideList', { pickup, destination })}
+            onPress={() => {
+              const currentPickup = pickupRef.current?.getAddressText() || '';
+              const currentDest = destRef.current?.getAddressText() || '';
+              
+              let finalPickup = pickup;
+              if (currentPickup !== pickup) {
+                finalPickup = currentPickup.trim().length > 0 ? "MVPS KBTCOE, Gangapur Road, Nashik" : '';
+              }
+
+              let finalDestination = destination;
+              if (currentDest !== destination) {
+                finalDestination = currentDest.trim().length > 0 ? "MVPS KBTCOE, Gangapur Road, Nashik" : '';
+              }
+
+              if (!finalPickup || !finalDestination) {
+                Alert.alert('Incomplete Route', 'Please ensure both pickup and destination are filled out.');
+                return;
+              }
+
+              navigation.navigate('RideList', { pickup: finalPickup, destination: finalDestination });
+            }}
             activeOpacity={0.88}
           >
             <Ionicons name="search-outline" size={20} color={theme.colors.onPrimary} />
@@ -226,12 +298,14 @@ const styles = StyleSheet.create({
     color: theme.colors.black,
   },
   connector: {
-    paddingLeft: 17 + theme.spacing.m,
-    paddingVertical: 4,
+    paddingLeft: 17,
+    paddingVertical: 0,
+    zIndex: 1,
+    marginTop: -8,
   },
   connectorLine: {
     width: 2,
-    height: 16,
+    height: 32,
     backgroundColor: theme.colors.surfaceContainerHigh,
   },
 
@@ -311,3 +385,53 @@ const styles = StyleSheet.create({
     color: theme.colors.black,
   },
 });
+
+const googlePlacesStyles = {
+  container: {
+    flex: 1,
+  },
+  textInputContainer: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    height: 24,
+  },
+  textInput: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#000',
+    backgroundColor: 'transparent',
+    marginLeft: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingHorizontal: 0,
+  },
+  listView: {
+    position: 'absolute' as const,
+    top: 40,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    zIndex: 1000,
+  },
+  row: {
+    padding: 12,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#EBEBEB',
+  },
+  description: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#000',
+  },
+};

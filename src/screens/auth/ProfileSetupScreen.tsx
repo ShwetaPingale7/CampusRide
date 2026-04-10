@@ -50,7 +50,6 @@ export default function ProfileSetupScreen({ navigation }: Props) {
       id: session.user.id,
       full_name: `${firstName} ${lastName}`,
       college_id: studentId,
-      college_name: college,
       role: selectedRole,
     });
     setLoading(false);

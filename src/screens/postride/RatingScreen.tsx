@@ -14,18 +14,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { sendPushNotification } from '../../services/pushNotifications';
+import { useAuth } from '../../services/AuthContext';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Rating'>;
 };
 
 export default function RatingScreen({ navigation }: Props) {
+  const { session } = useAuth();
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [comment, setComment] = useState('');
   const [commentFocused, setCommentFocused] = useState(false);
 
   const displayRating = hovered || rating;
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) return;
+    
+    // Alert the other party they received a rating!
+    if (session?.user?.id) {
+       await sendPushNotification(
+         session.user.id,
+         'New Rating Received! ⭐',
+         `You just received a ${rating}-star rating for your recent ride! Keep up the great work.`
+       );
+    }
+    
+    navigation.navigate('RideSummary');
+  };
 
   const LABELS: Record<number, string> = {
     1: 'Poor',
@@ -117,7 +135,7 @@ export default function RatingScreen({ navigation }: Props) {
           {/* Submit */}
           <TouchableOpacity
             style={[styles.submitButton, rating === 0 && styles.submitButtonDisabled]}
-            onPress={() => rating > 0 && navigation.navigate('RideSummary')}
+            onPress={handleSubmitRating}
             activeOpacity={rating > 0 ? 0.8 : 1}
           >
             <Ionicons

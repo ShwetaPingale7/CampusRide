@@ -69,6 +69,9 @@ export type RootStackParamList = {
     time: string;
     seats: number;
     genderPref: string;
+    distance: string;
+    estTimeMin: number;
+    suggestedFare: number;
   };
   RideRequests: undefined;
   ActiveRide: {

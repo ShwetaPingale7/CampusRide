@@ -15,15 +15,33 @@ import { theme } from '../../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { supabase } from '../../services/supabase';
+import { sendPushNotification } from '../../services/pushNotifications';
 import * as Location from 'expo-location';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveRide'>;
 
 export default function ActiveRideScreen({ navigation, route }: Props) {
   const rideId = route.params?.rideId;
-  const [shareLocation, setShareLocation] = useState(true);
   const [ride, setRide] = useState<any>(null);
   const [passenger, setPassenger] = useState<any>(null);
+  const [location, setLocation] = useState<{lat: number, lng: number} | null>({ lat: 20.0110, lng: 73.7903 }); // Nashik default
+
+  useEffect(() => {
+    const notifyRideStarted = async () => {
+      // In a real app we'd fetch the passenger if not populated yet
+      // For MVP placeholder, we simulate if we had it
+      const passengerIdToAlert = passenger?.id || ride?.passenger_id;
+      if (passengerIdToAlert) {
+        await sendPushNotification(
+          passengerIdToAlert,
+          'Ride Started! 🚙',
+          'Your driver has started the ride and is en route. Live location tracking is now active.'
+        );
+      }
+    };
+    notifyRideStarted();
+  }, []);
 
   useEffect(() => {
     let locationSubscription: any = null;
@@ -38,14 +56,15 @@ export default function ActiveRideScreen({ navigation, route }: Props) {
           timeInterval: 5000,
           distanceInterval: 10,
         },
-        async (location) => {
-          if (shareLocation && rideId) {
+        async (loc) => {
+          setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+          if (rideId) {
             // Update Supabase with current lat/lng
             await supabase
               .from('rides')
               .update({ 
-                driver_lat: location.coords.latitude, 
-                driver_lng: location.coords.longitude 
+                driver_lat: loc.coords.latitude, 
+                driver_lng: loc.coords.longitude 
               })
               .eq('id', rideId);
           }
@@ -55,10 +74,25 @@ export default function ActiveRideScreen({ navigation, route }: Props) {
 
     startTracking();
     return () => locationSubscription?.remove();
-  }, [shareLocation]);
+  }, []);
 
   const handleCompleteRide = async () => {
-    // Logic to update status and navigate
+    // 1. Update status to 'completed' in Supabase
+    if (rideId) {
+      await supabase.from('rides').update({ status: 'completed' }).eq('id', rideId);
+    }
+    
+    // 2. Alert the passenger!
+    // Note: ensure 'passenger.id' or 'passenger_id' is set when fetching the active ride details
+    const passengerIdToAlert = passenger?.id || ride?.passenger_id; 
+    if (passengerIdToAlert) {
+      await sendPushNotification(
+        passengerIdToAlert,
+        'Ride Completed ✅',
+        'Your driver has marked the ride as completed. Don\'t forget to pay and leave a rating!'
+      );
+    }
+
     Alert.alert('Success', 'Ride completed!', [
       { text: 'OK', onPress: () => navigation.navigate('Payment') }
     ]);
@@ -75,12 +109,37 @@ export default function ActiveRideScreen({ navigation, route }: Props) {
           <Text style={styles.statusText}>Ride in Progress</Text>
         </View>
 
-        {/* Map placeholder */}
+        {/* Live Map */}
         <View style={styles.mapArea}>
-          <View style={styles.mapInner}>
-            <Ionicons name="map-outline" size={40} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.mapLabel}>Live Map</Text>
-          </View>
+          {location ? (
+            <MapView
+              style={StyleSheet.absoluteFillObject}
+              provider={PROVIDER_GOOGLE}
+              region={{
+                 latitude: location.lat,
+                 longitude: location.lng,
+                 latitudeDelta: 0.01,
+                 longitudeDelta: 0.01,
+              }}
+              showsUserLocation={true}
+              showsMyLocationButton={false}
+            >
+              <Marker
+                coordinate={{ latitude: location.lat, longitude: location.lng }}
+                title="Your Car"
+              >
+                <View style={{ backgroundColor: theme.colors.primary, padding: 8, borderRadius: 20, borderWidth: 2, borderColor: 'white', elevation: 4 }}>
+                  <Ionicons name="car" size={18} color="black" />
+                </View>
+              </Marker>
+            </MapView>
+          ) : (
+            <View style={styles.mapInner}>
+              <Ionicons name="map-outline" size={40} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.mapLabel}>Acquiring GPS...</Text>
+            </View>
+          )}
+
           {/* Floating ETA card over map */}
           <View style={styles.etaFloat}>
             <View style={styles.etaItem}>
@@ -150,24 +209,7 @@ export default function ActiveRideScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        {/* Share location toggle */}
-        <View style={styles.toggleCard}>
-          <View style={styles.toggleLeft}>
-            <View style={styles.toggleIcon}>
-              <Ionicons name="navigate-outline" size={18} color={theme.colors.black} />
-            </View>
-            <View>
-              <Text style={styles.toggleTitle}>Share Live Location</Text>
-              <Text style={styles.toggleSub}>Lets passenger track you in real time</Text>
-            </View>
-          </View>
-          <Switch
-            value={shareLocation}
-            onValueChange={setShareLocation}
-            trackColor={{ false: theme.colors.surfaceContainerHighest, true: '#2E7D32' }}
-            thumbColor={shareLocation ? theme.colors.white : theme.colors.background}
-          />
-        </View>
+
 
         {/* SOS Button */}
         <TouchableOpacity
@@ -418,46 +460,7 @@ const styles = StyleSheet.create({
     color: theme.colors.black,
   },
 
-  toggleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.surfaceContainerLowest,
-    borderRadius: theme.borderRadius.card,
-    padding: theme.spacing.m,
-    marginBottom: theme.spacing.m,
-    shadowColor: theme.colors.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  toggleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.m,
-    flex: 1,
-  },
-  toggleIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toggleTitle: {
-    fontFamily: theme.typography.fontFamily,
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.black,
-    marginBottom: 2,
-  },
-  toggleSub: {
-    fontFamily: theme.typography.fontFamily,
-    fontSize: 12,
-    color: theme.colors.onSurfaceVariant,
-  },
+
 
   sosButton: {
     flexDirection: 'row',

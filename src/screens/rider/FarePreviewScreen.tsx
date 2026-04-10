@@ -14,11 +14,12 @@ import { useAuth } from '../../services/AuthContext';
 import { supabase } from '../../services/supabase';
 import { useState } from 'react';
 import { ActivityIndicator, Alert } from 'react-native';
+import { sendPushNotification, scheduleUpcomingRideReminder, scheduleRideStartingSoonAlert, scheduleAutoCancelWarning } from '../../services/pushNotifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FarePreview'>;
 
 export default function FarePreviewScreen({ navigation, route }: Props) {
-  const { startLocation, destination, date, time, seats, genderPref } = route.params;
+  const { startLocation, destination, date, time, seats, genderPref, distance, estTimeMin, suggestedFare } = route.params;
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -29,15 +30,18 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
     }
     setLoading(true);
 
+    const departureDate = new Date().toISOString(); // Placeholder from existing code
+
     const { error } = await supabase.from('rides').insert({
       driver_id: session.user.id,
       origin: startLocation,
       destination: destination,
       available_seats: seats,
-      price_per_seat: 31,
-      departure_time: new Date().toISOString(),
+      seats_available: seats, // To satisfy the strict DB constraint
+      price_per_seat: suggestedFare,
+      departure_time: departureDate,
       vehicle: 'Honda Activa', // Default/placeholder for now
-      status: 'waiting'
+      status: 'scheduled'
     });
 
     setLoading(false);
@@ -45,6 +49,34 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
     if (error) {
       Alert.alert('Failed to publish', error.message);
     } else {
+      // 1. Instantly alert the driver that their ride is officially published
+      await sendPushNotification(
+        session.user.id,
+        'Ride Published! 🚗',
+        `Your ride from ${startLocation} has been published successfully.`
+      );
+
+      // 2. Schedule a reminder 30 mins before the ride starts
+      await scheduleUpcomingRideReminder(
+        'Upcoming Ride Alert ⏰',
+        `Your ride from ${startLocation} starts in 30 minutes!`,
+        departureDate
+      );
+
+      // 3. Schedule "Ride starting soon" 10 mins before
+      await scheduleRideStartingSoonAlert(
+        'Ride Starting Soon!',
+        'Your ride is starting in exactly 10 minutes. Please head to your vehicle.',
+        departureDate
+      );
+
+      // 4. Schedule "Auto-cancel warning" if ride isn't started 5 mins late
+      await scheduleAutoCancelWarning(
+        'Action Required: Start your ride ⚠️',
+        'It has been 5 minutes since your scheduled start time. Your ride will be auto-canceled in 5 minutes if not started.',
+        departureDate
+      );
+
       navigation.replace('RideRequests');
     }
   };
@@ -98,7 +130,7 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
               color={theme.colors.onSurfaceVariant}
               style={{ marginBottom: 6 }}
             />
-            <Text style={styles.statValue}>3.2 km</Text>
+            <Text style={styles.statValue}>{distance} km</Text>
             <Text style={styles.statLabel}>Distance</Text>
           </View>
 
@@ -111,7 +143,7 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
               color={theme.colors.onSurfaceVariant}
               style={{ marginBottom: 6 }}
             />
-            <Text style={styles.statValue}>~12 min</Text>
+            <Text style={styles.statValue}>~{estTimeMin} min</Text>
             <Text style={styles.statLabel}>Est. Time</Text>
           </View>
 
@@ -138,8 +170,8 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
             <Text style={styles.fareAmount}>₹15.00</Text>
           </View>
           <View style={styles.fareRow}>
-            <Text style={styles.fareItem}>Distance (3.2 km × ₹5)</Text>
-            <Text style={styles.fareAmount}>₹16.00</Text>
+            <Text style={styles.fareItem}>Distance ({distance} km × ₹5)</Text>
+            <Text style={styles.fareAmount}>₹{Math.round(parseFloat(distance) * 5)}.00</Text>
           </View>
 
           {/* Divider via background shift — no 1px border rule */}
@@ -147,7 +179,7 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
 
           <View style={styles.fareRow}>
             <Text style={styles.fareTotalLabel}>Suggested Fare</Text>
-            <Text style={styles.fareTotalAmount}>₹31.00</Text>
+            <Text style={styles.fareTotalAmount}>₹{suggestedFare}.00</Text>
           </View>
         </View>
 

@@ -135,6 +135,8 @@ export default function HomeScreen() {
             <Text style={styles.waveEmoji}>👋</Text>
           </View>
           <Text style={styles.greetSub}>Where are you heading today?</Text>
+
+
         </View>
 
         {/* Action Cards */}
