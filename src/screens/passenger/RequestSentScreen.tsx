@@ -13,8 +13,11 @@ import { theme } from '../../theme/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
+import { RouteProp } from '@react-navigation/native';
+
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RequestSent'>;
+  route: RouteProp<RootStackParamList, 'RequestSent'>;
 };
 
 function PulseRing() {
@@ -91,7 +94,7 @@ const pulseStyles = StyleSheet.create({
   },
 });
 
-export default function RequestSentScreen({ navigation }: Props) {
+export default function RequestSentScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -139,7 +142,7 @@ export default function RequestSentScreen({ navigation }: Props) {
         {/* Simulate rider accept — demo only */}
         <TouchableOpacity
           style={styles.simulateButton}
-          onPress={() => navigation.navigate('RideConfirmed')}
+          onPress={() => navigation.navigate('RideConfirmed', { rideId: route.params?.rideId || 'demo-id' })}
         >
           <Text style={styles.simulateText}>Rider Accepted →</Text>
         </TouchableOpacity>

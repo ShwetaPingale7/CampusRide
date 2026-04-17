@@ -48,7 +48,7 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function RideListScreen({ navigation, route }: Props) {
-  const { pickup, destination } = route.params;
+  const { pickup, destination, pickupCoords } = route.params;
   const [rides, setRides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -56,19 +56,31 @@ export default function RideListScreen({ navigation, route }: Props) {
   useEffect(() => {
     const searchRides = async () => {
       setLoading(true);
-      let query = supabase
-        .from('rides')
-        .select(`
-          *,
-          profiles(full_name, rating, avatar_url)
-        `)
-        .eq('status', 'waiting');
+      let query;
 
-      if (pickup) {
-        query = query.ilike('origin', `%${pickup}%`);
-      }
-      if (destination) {
-        query = query.ilike('destination', `%${destination}%`);
+      if (pickupCoords) {
+        query = supabase
+          .rpc('find_nearby_rides', {
+            search_lng: pickupCoords.lng,
+            search_lat: pickupCoords.lat,
+            search_radius_meters: 15000 // 15km radius
+          })
+          .select(`
+            *,
+            profiles(full_name, rating, avatar_url)
+          `);
+      } else {
+        query = supabase
+          .from('rides')
+          .select(`
+            *,
+            profiles(full_name, rating, avatar_url)
+          `)
+          .eq('status', 'scheduled');
+          
+        if (pickup) {
+          query = query.ilike('origin', `%${pickup}%`);
+        }
       }
 
       const { data, error } = await query;

@@ -19,7 +19,7 @@ import { sendPushNotification, scheduleUpcomingRideReminder, scheduleRideStartin
 type Props = NativeStackScreenProps<RootStackParamList, 'FarePreview'>;
 
 export default function FarePreviewScreen({ navigation, route }: Props) {
-  const { startLocation, destination, date, time, seats, genderPref, distance, estTimeMin, suggestedFare } = route.params;
+  const { startLocation, destination, date, time, seats, genderPref, distance, estTimeMin, suggestedFare, startCoords, destCoords } = route.params;
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +32,10 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
 
     const departureDate = new Date().toISOString(); // Placeholder from existing code
 
+    // Format coordinates as PostGIS WKT `POINT(lng lat)`
+    const origin_coords = startCoords ? `POINT(${startCoords.lng} ${startCoords.lat})` : null;
+    const destination_coords = destCoords ? `POINT(${destCoords.lng} ${destCoords.lat})` : null;
+
     const { error } = await supabase.from('rides').insert({
       driver_id: session.user.id,
       origin: startLocation,
@@ -40,6 +44,9 @@ export default function FarePreviewScreen({ navigation, route }: Props) {
       seats_available: seats, // To satisfy the strict DB constraint
       price_per_seat: suggestedFare,
       departure_time: departureDate,
+      gender_preference: genderPref,
+      origin_coords: origin_coords,
+      destination_coords: destination_coords,
       vehicle: 'Honda Activa', // Default/placeholder for now
       status: 'scheduled'
     });

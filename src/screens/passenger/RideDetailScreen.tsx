@@ -58,11 +58,11 @@ export default function RideDetailScreen({ navigation, route }: Props) {
     if (!session?.user?.id) return;
     setLoading(true);
 
-    const { error } = await supabase.from('bookings').insert({
+    const { error, data } = await supabase.from('bookings').insert({
       ride_id: ride.id,
       passenger_id: session.user.id,
       seats_booked: 1,
-    });
+    }).select();
 
     setLoading(false);
 
@@ -85,7 +85,10 @@ export default function RideDetailScreen({ navigation, route }: Props) {
         );
       }
 
-      navigation.navigate('RequestSent');
+      navigation.navigate('RequestSent', {
+        requestId: data?.[0]?.id || 'req-id',
+        rideId: ride.id
+      });
     }
   };
 

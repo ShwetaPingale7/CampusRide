@@ -34,6 +34,7 @@ export default function FindRideScreen({ navigation }: Props) {
   const [destination, setDestination] = useState('');
   const [pickupFocused, setPickupFocused] = useState(false);
   const [destFocused, setDestFocused] = useState(false);
+  const [pickupCoords, setPickupCoords] = useState<{lat: number, lng: number} | null>(null);
 
   const pickupRef = React.useRef<any>(null);
   const destRef = React.useRef<any>(null);
@@ -68,8 +69,11 @@ export default function FindRideScreen({ navigation }: Props) {
                 ref={pickupRef}
                 placeholder="Pickup location"
                 fetchDetails={true}
-                onPress={(data) => {
+                onPress={(data, details = null) => {
                   setPickup(data.description);
+                  if (details?.geometry?.location) {
+                    setPickupCoords({ lat: details.geometry.location.lat, lng: details.geometry.location.lng });
+                  }
                 }}
                 query={{
                   key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -186,8 +190,10 @@ export default function FindRideScreen({ navigation }: Props) {
               const currentDest = destRef.current?.getAddressText() || '';
               
               let finalPickup = pickup;
+              let finalPickupCoords = pickupCoords;
               if (currentPickup !== pickup) {
                 finalPickup = currentPickup.trim().length > 0 ? "MVPS KBTCOE, Gangapur Road, Nashik" : '';
+                if (currentPickup.trim().length > 0) finalPickupCoords = { lat: 20.01127, lng: 73.76686 };
               }
 
               let finalDestination = destination;
@@ -200,7 +206,7 @@ export default function FindRideScreen({ navigation }: Props) {
                 return;
               }
 
-              navigation.navigate('RideList', { pickup: finalPickup, destination: finalDestination });
+              navigation.navigate('RideList', { pickup: finalPickup, destination: finalDestination, pickupCoords: finalPickupCoords });
             }}
             activeOpacity={0.88}
           >

@@ -43,6 +43,11 @@ import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import ReportScreen from '../screens/profile/ReportScreen';
 import ChatScreen from '../screens/common/ChatScreen';
 
+// Admin screens
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminVerificationsScreen from '../screens/admin/AdminVerificationsScreen';
+import AdminComplaintsScreen from '../screens/admin/AdminComplaintsScreen';
+
 export type RootStackParamList = {
   // ── Bootstrap ──
   Splash: undefined;
@@ -72,6 +77,8 @@ export type RootStackParamList = {
     distance: string;
     estTimeMin: number;
     suggestedFare: number;
+    startCoords: { lat: number; lng: number } | null;
+    destCoords: { lat: number; lng: number } | null;
   };
   RideRequests: undefined;
   ActiveRide: {
@@ -83,6 +90,7 @@ export type RootStackParamList = {
   RideList: {
     pickup: string;
     destination: string;
+    pickupCoords?: { lat: number; lng: number } | null;
   };
   RideDetail: {
     ride: any;
@@ -109,6 +117,10 @@ export type RootStackParamList = {
     rideId: string;
     otherName: string;
   };
+  // ── Admin ──
+  AdminDashboard: undefined;
+  AdminVerifications: undefined;
+  AdminComplaints: undefined;
 };
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -181,6 +193,11 @@ export default function AppNavigator() {
           <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
           <RootStack.Screen name="Report" component={ReportScreen} />
           <RootStack.Screen name="Chat" component={ChatScreen} />
+
+          {/* ── Admin Screens ── */}
+          <RootStack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+          <RootStack.Screen name="AdminVerifications" component={AdminVerificationsScreen} />
+          <RootStack.Screen name="AdminComplaints" component={AdminComplaintsScreen} />
         </>
       )}
     </RootStack.Navigator>

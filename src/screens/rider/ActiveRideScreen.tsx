@@ -17,7 +17,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { supabase } from '../../services/supabase';
 import { sendPushNotification } from '../../services/pushNotifications';
 import * as Location from 'expo-location';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from '../../components/common/MapView';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveRide'>;
 
@@ -180,7 +180,7 @@ export default function ActiveRideScreen({ navigation, route }: Props) {
           </View>
           <TouchableOpacity 
             style={styles.msgButton}
-            onPress={() => Alert.alert('Chat', 'Opening chat...')}
+            onPress={() => navigation.navigate('Chat', { rideId, otherName: passenger?.full_name || 'Passenger' })}
           >
             <Ionicons name="chatbubble-outline" size={20} color={theme.colors.black} />
           </TouchableOpacity>

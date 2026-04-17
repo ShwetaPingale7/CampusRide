@@ -70,7 +70,7 @@ export default function RequestingRideScreen({ navigation }: Props) {
 
     // Auto-navigate to ride list after simulation
     const timer = setTimeout(() => {
-      navigation.replace('RideList');
+      navigation.replace('RideList', { pickup: 'Main Gate, Campus', destination: 'Engineering Block' });
     }, 3000);
 
     return () => {

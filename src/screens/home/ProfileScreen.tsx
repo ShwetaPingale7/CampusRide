@@ -23,6 +23,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 const MENU_ITEMS = [
   { label: 'Edit Profile', icon: 'person-outline', nav: 'EditProfile', group: 'ACCOUNT' },
   { label: 'Verification Status', icon: 'shield-checkmark-outline', nav: 'EditProfile', badge: 'Verified ✓', group: 'ACCOUNT' },
+  { label: 'Admin Panel', icon: 'key-outline', nav: 'AdminDashboard', group: 'ACCOUNT' },
   { label: 'My Rides', icon: 'document-text-outline', nav: 'MyRidesTab', group: 'ACTIVITY' },
   { label: 'Notifications', icon: 'notifications-outline', nav: 'Notifications', group: 'ACTIVITY' },
   { label: 'Report a User', icon: 'flag-outline', nav: 'Report', group: 'SAFETY' },

@@ -138,6 +138,8 @@ export default function OfferRideScreen({ navigation }: Props) {
       distance: distanceKm.toFixed(1),
       estTimeMin,
       suggestedFare,
+      startCoords: finalStartCoords,
+      destCoords: finalDestCoords,
     });
   };
 

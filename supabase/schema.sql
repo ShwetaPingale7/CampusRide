@@ -1,5 +1,8 @@
 -- Schema for CampusRide
 
+-- Enable PostGIS extension for spatial queries
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- Create profiles table
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users NOT NULL PRIMARY KEY,
@@ -36,13 +39,19 @@ CREATE TABLE rides (
   price_per_seat DECIMAL(10,2) NOT NULL,
   status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
   driver_lat DOUBLE PRECISION,
-  driver_lng DOUBLE PRECISION
+  driver_lng DOUBLE PRECISION,
+  origin_coords geography(POINT),
+  destination_coords geography(POINT)
 );
 
 ALTER TABLE rides ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Rides are viewable by everyone." ON rides FOR SELECT USING (true);
 CREATE POLICY "Drivers can insert their own rides." ON rides FOR INSERT WITH CHECK (auth.uid() = driver_id);
 CREATE POLICY "Drivers can update their own rides." ON rides FOR UPDATE USING (auth.uid() = driver_id);
+
+-- Create spatial index for faster matching queries
+CREATE INDEX rides_origin_coords_idx ON rides USING GIST (origin_coords);
+
 
 -- Create bookings table
 CREATE TABLE bookings (
@@ -112,3 +121,29 @@ CREATE TABLE alerts (
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can insert their own alerts." ON alerts FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Security can view all alerts." ON alerts FOR SELECT USING (true); -- Simplified for MVP
+
+-- RPC Function to find nearby rides using PostGIS
+-- Pass in passenger's search longitude and latitude, and search radius in meters
+CREATE OR REPLACE FUNCTION find_nearby_rides(
+  search_lng DOUBLE PRECISION,
+  search_lat DOUBLE PRECISION,
+  search_radius_meters DOUBLE PRECISION
+)
+RETURNS SETOF rides AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM rides
+  WHERE status = 'scheduled'
+    AND available_seats > 0
+    AND ST_DWithin(
+      origin_coords,
+      ST_SetSRID(ST_MakePoint(search_lng, search_lat), 4326)::geography,
+      search_radius_meters
+    )
+  ORDER BY ST_Distance(
+    origin_coords,
+    ST_SetSRID(ST_MakePoint(search_lng, search_lat), 4326)::geography
+  ) ASC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
